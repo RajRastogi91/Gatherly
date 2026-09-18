@@ -189,3 +189,89 @@ export const editProfile = async (req, res) => {
         });
     }
 };
+
+export const getSuggestedUsers = async (req, res) => {
+    try {
+        const suggestedUsers = await User.find({_id:{$ne:req.id}}).select("-password");
+        if(!suggestedUsers){
+            return res.status(400).json({
+                message: "Currently do not have any users."
+            })
+        };
+        return res.status(200).json({
+            success: true,
+            users: suggestedUsers
+        });
+    } catch (error) {
+        console.error("getSuggestedUsers error", error);
+
+        return res.status(500).json({
+            message: "Internal Server Error.",
+            success: false
+        });
+    }
+};
+
+export const followUnfollow = async (req, res) => {
+    try {
+        const currentUserId = req.id;
+        const targetUserId = req.params.id;
+
+        // Cannot follow yourself
+        if (currentUserId === targetUserId) {
+            return res.status(400).json({
+                message: "You cannot follow yourself.",
+                success: false
+            });
+        }
+
+        const currentUser = await User.findById(currentUserId);
+        const targetUser = await User.findById(targetUserId);
+
+        if (!targetUser) {
+            return res.status(404).json({
+                message: "User not found.",
+                success: false
+            });
+        }
+
+        // Check if already following
+        const isFollowing = currentUser.following.includes(targetUserId);
+
+        if (isFollowing) {
+            // UNFOLLOW
+            currentUser.following.pull(targetUserId);
+            targetUser.followers.pull(currentUserId);
+
+            await currentUser.save();
+            await targetUser.save();
+
+            return res.status(200).json({
+                message: `You unfollowed ${targetUser.username}.`,
+                success: true,
+                following: false
+            });
+        }
+
+        // FOLLOW
+        currentUser.following.push(targetUserId);
+        targetUser.followers.push(currentUserId);
+
+        await currentUser.save();
+        await targetUser.save();
+
+        return res.status(200).json({
+            message: `You are now following ${targetUser.username}.`,
+            success: true,
+            following: true
+        });
+
+    } catch (error) {
+        console.error("Follow/Unfollow Error:", error);
+
+        return res.status(500).json({
+            message: "Internal server error.",
+            success: false
+        });
+    }
+};
