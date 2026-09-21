@@ -48,3 +48,113 @@ export const createPost = async (req, res) => {
         });    
     }
 };
+
+export const getAllPost = async (req, res) => {
+    try {
+        const posts = await Post.find().sort({createdAt:-1}).populate({path:'author', select:'username, profilePicture'}).populate({
+        path:'comments',
+        sort:{createdAt:-1},
+        populate:{
+            path:'author',
+            select:'username, profilePicture'
+        }
+    });
+    return res.status(200).json({
+        posts,
+        success:true
+    });
+
+    } catch (error) {
+       console.error("getAllPost Error:", error);
+
+        return res.status(500).json({
+            message: "Internal server error.",
+            success: false
+        }); 
+    }
+};
+
+export const getUserPost = async (req, res) => {
+    try {
+        const authorId = req.id;
+        const posts = await Post.find({author:authorId}).sort({createdAt:-1}).populate({
+            path:'author',
+            select:'username, profilePicture'
+        }).populate({
+            path:'comments',
+            sort:{createdAt:-1},
+            populate:{
+                path:'author',
+                select:'username, profilePicture'
+            }
+        });
+
+        return res.status(200).json({
+        posts,
+        success:true
+        });
+    } catch (error) {
+        console.error("getUserPost Error:", error);
+
+        return res.status(500).json({
+            message: "Internal server error.",
+            success: false
+        });
+    }
+};
+
+export const likePost = async (req, res) => {
+    try {
+        const likedByUser = req.id;
+        const postId = req.params.id;
+        const post = await Post.findById(postId);
+        if(!post) return res.status(404).json({
+            message:'Post not found.',
+            success:false
+        });
+        //like logic started
+        await Post.updateOne({$addToSet: {likes: likedByUser}});
+        await Post.save();
+        //implement socket io for real time notification
+
+        return res.status(200).json({
+            message:'Post Liked.',
+            success:true
+        });
+    } catch (error) {
+        console.error("Like Error:", error);
+
+        return res.status(500).json({
+            message: "Internal server error.",
+            success: false
+        });
+    }
+};
+
+export const dislikePost = async (req, res) => {
+    try {
+        const likedByUser = req.id;
+        const postId = req.params.id;
+        const post = await Post.findById(postId);
+        if(!post) return res.status(404).json({
+            message:'Post not found.',
+            success:false
+        });
+        //like logic started
+        await Post.updateOne({$pull: {likes: likedByUser}});
+        await Post.save();
+        //implement socket io for real time notification
+
+        return res.status(200).json({
+            message:'Post disLiked.',
+            success:true
+        });
+    } catch (error) {
+        console.error("disLike Error:", error);
+
+        return res.status(500).json({
+            message: "Internal server error.",
+            success: false
+        });
+    }
+};
